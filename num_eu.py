@@ -47,7 +47,7 @@ R1, R2      = R_SI/l_Deb, R_SI/l_Deb         # [обзразмеренно на 
 
 
 
-def read_MD_data(mol_d = r""):
+def read_MD_data(mol_d = r"C:\\Users\\1\\Downloads\\densprof_coul_5eV\\densprof_coul_5eV\\"):
     """ 
     Чтение данных молекулярной динамики
     mol_d - путь к МД результатам 
@@ -69,13 +69,13 @@ def phi_0_DH(rho,R):
          Внутренняя область аналитического решения
         -Обезразмерянное
     """
-    return -rho*(1+R)*np.exp(-R)+rho
+    return -rho*(1+R)
 def phi_s_DH(rho,R):
     """ 
         Внешняя область аналитического решения
         -Обезразмерянное
     """
-    return -rho/R*np.exp(-R)*(np.sinh(R)-R*np.cosh(R))
+    return -rho/R*(np.sinh(R)-R*np.cosh(R))
 
 #   расширение функций на граничные условия
 def pot_DH(r,rho,R):
@@ -83,7 +83,7 @@ def pot_DH(r,rho,R):
          Полное аналитическое решение
         -Обезразмерянное
     """
-    return np.piecewise(r,[np.abs(r)<R,np.abs(r)>=R],[lambda r: np.sinh(r)/r*(phi_0_DH(rho,R)-rho)+rho,lambda r: R*phi_s_DH(rho,R)*np.exp(R-r)/r])
+    return np.piecewise(r,[np.abs(r)<R,np.abs(r)>=R],[lambda r: np.sinh(r)/r*(phi_0_DH(rho,R))+rho*np.exp(R),lambda r: R*phi_s_DH(rho,R)*np.exp(R-r)/r])*np.exp(-R)
 def dpot_DH(r,rho,R):
     """ 
         Производная полного аналитического решения
@@ -134,8 +134,29 @@ def recover(r, R, psi, psi_analit):
     r = r*l_Deb*1e9
     return r, R, psi, psi_analit
 
+def lap(r, psi):
+    dr = r[1]-r[0]
+    dpsi  = np.gradient(psi, dr)
+    ddpsi = np.gradient(dpsi, dr)
+    return ddpsi+2*dpsi/r
 
-def Solver_PB(R1=R1, R2=R2, MD_data=-1, method=0, dr=dr, psi_0=0, rho1=rho1, rho2=rho2, non_lin=1, graf=1):
+def recover_nonlin(r, R, psi, psi_analit, R1):
+    psi = lap(r, psi)
+    dr = r[1]-r[0]
+    psi[r<R1-dr*7]+=rho1
+    dpsi = np.abs(np.gradient(psi, r[1]-r[0]))
+    psi = psi*2.0*n_i
+    psi_analit = psi_analit*2.0*n_i
+    R, r = R*l_Deb*1e9, r*l_Deb*1e9
+    
+    l = dpsi<1
+    r, psi, psi_analit = r[l], psi[l], psi_analit[l]
+    return r, R, psi, psi_analit
+
+#==============================================================================================
+
+
+def Solver_PB(R1=R1, R2=R2, MD_data=-1, method=0, dr=dr, psi_0=0.0, dpsi_0=0.0, rho1=rho1, rho2=rho2, non_lin=1, graf=1):
     """
         Главная функция, решающая нелинеаризованное ур-е Пуассона-Больцмана
         R1, R2:     радиусы: внутренний и внешний
@@ -144,17 +165,16 @@ def Solver_PB(R1=R1, R2=R2, MD_data=-1, method=0, dr=dr, psi_0=0, rho1=rho1, rho
         dr:         шаг функции
         psi_0:      начальное значение psi для численного метода
         rho1, rho1: плотность заряда внутреняя и внешняя
-        non_lin:    1 = линейная, 0 = нелинейная функция солвера
+        non_lin:    0 = линейная, 1 = нелинейная функция солвера
         graf:       вывод графика
     """
-    
     R1 = make_local(R1)
     R2 = make_local(R2)
     r = np.arange(R1*0.6, R1*1.2, dr)
     
     solver = n_rk_method if method else rk_method
     # инициализация psi[-] и dpsi[-]
-    psi, dpsi = np.array([psi_0]), np.array([0.0])
+    psi, dpsi = np.array([psi_0]), np.array([dpsi_0])
     ####  -------------------------------------------------------------------------- 
     def Charge_density(r, psi, d_0=d_0, R1=R1, R2=R2, rho1=rho1, rho2=rho2):
         """
@@ -201,8 +221,6 @@ def Solver_PB(R1=R1, R2=R2, MD_data=-1, method=0, dr=dr, psi_0=0, rho1=rho1, rho
         print("Обезразмеренные величины")
         gr(r[sp:], psi_analit[sp:], label="Аналитическое")
         gr(r[sp:], psi[sp:], label="Численное")
-        print("Стартовая аналитическая точка: ", psi_analit[0])
-        print("Стартовая численная точка: ", psi[0])
         plt.vlines(R1, 0, max(psi_analit[sp:])/3)
         plt.title("Явный метод Рунге-Кутты 4  R="+str(R1))
         plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
@@ -212,9 +230,11 @@ def Solver_PB(R1=R1, R2=R2, MD_data=-1, method=0, dr=dr, psi_0=0, rho1=rho1, rho
         plt.show()
         ####  --------------------------------------------------------------------------
         if MD_data!= -1:
-            print("Исходные величины")
+            print("Исходные величины в плотности электронов")
             data, fname = read_MD_data()
-            r, R1, psi, psi_analit = recover(r, R1, psi, psi_analit)
+            if non_lin: rec = recover_nonlin 
+            else: rec = recover
+            r, R1, psi, psi_analit = rec(r, R1, psi, psi_analit, R1)
             gr(data[MD_data][::,0], data[MD_data][::,1], label='N_i = '+ fname[MD_data].split('_')[2])
             gr(r[sp:], psi_analit[sp:], label="Аналитическое")
             gr(r[sp:], psi[sp:], label="Численное")
@@ -222,5 +242,13 @@ def Solver_PB(R1=R1, R2=R2, MD_data=-1, method=0, dr=dr, psi_0=0, rho1=rho1, rho
             plt.title("Явный метод Рунге-Кутты 4  R="+str(R1))
             plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
             plt.xlabel("r")
-            plt.ylabel('\u03C8')
+            plt.ylabel("N_e")
             plt.show()
+    else:        
+        if  np.isnan(psi[-1]):
+    #         print(np.sum(psi<-0.1)>r.shape[0]*0.1)
+            if np.sum(psi<0)>1:
+                return -100
+            else:
+                return 100
+        return psi[-1]
