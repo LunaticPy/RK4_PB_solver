@@ -47,7 +47,7 @@ R1, R2      = R_SI/l_Deb, R_SI/l_Deb         # [обзразмеренно на 
 
 
 
-def read_MD_data(mol_d = r"C:\\Users\\1\\Downloads\\densprof_coul_5eV\\densprof_coul_5eV\\"):
+def read_MD_data(mol_d = r""):
     """ 
     Чтение данных молекулярной динамики
     mol_d - путь к МД результатам 
