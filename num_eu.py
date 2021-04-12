@@ -140,23 +140,23 @@ def lap(r, psi):
     ddpsi = np.gradient(dpsi, dr)
     return ddpsi+2*dpsi/r
 
-def recover_nonlin(r, R, psi, psi_analit, R1):
+def recover_nonlin(r, R, psi, psi_analit):
     psi = lap(r, psi)
     dr = r[1]-r[0]
-    psi[r<R1-dr*7]+=rho1
+    psi[r<R-dr*7]+=rho1
     dpsi = np.abs(np.gradient(psi, r[1]-r[0]))
     psi = psi*2.0*n_i
     psi_analit = psi_analit*2.0*n_i
-    R, r = R*l_Deb*1e9, r*l_Deb*1e9
     
     l = dpsi<1
+    R, r = R*l_Deb*1e9, r*l_Deb*1e9
     r, psi, psi_analit = r[l], psi[l], psi_analit[l]
     return r, R, psi, psi_analit
 
 #==============================================================================================
 
 
-def Solver_PB(R1=R1, R2=R2, MD_data=-1, method=0, dr=dr, psi_0=0.0, dpsi_0=0.0, rho1=rho1, rho2=rho2, non_lin=1, graf=1):
+def Solver_PB(R1=R1, R2=R2, MD_data=-1, method=0, dr=dr, psi_0=0.0, dpsi_0=0.0, rho1=rho1, rho2=rho2, non_lin=1, graf=1, data_loc = r".\\densprof_coul_5eV\\"):
     """
         Главная функция, решающая нелинеаризованное ур-е Пуассона-Больцмана
         R1, R2:     радиусы: внутренний и внешний
@@ -231,10 +231,10 @@ def Solver_PB(R1=R1, R2=R2, MD_data=-1, method=0, dr=dr, psi_0=0.0, dpsi_0=0.0, 
         ####  --------------------------------------------------------------------------
         if MD_data!= -1:
             print("Исходные величины в плотности электронов")
-            data, fname = read_MD_data()
+            data, fname = read_MD_data(mol_d=data_loc)
             if non_lin: rec = recover_nonlin 
             else: rec = recover
-            r, R1, psi, psi_analit = rec(r, R1, psi, psi_analit, R1)
+            r, R1, psi, psi_analit = rec(r, R1, psi, psi_analit)
             gr(data[MD_data][::,0], data[MD_data][::,1], label='N_i = '+ fname[MD_data].split('_')[2])
             gr(r[sp:], psi_analit[sp:], label="Аналитическое")
             gr(r[sp:], psi[sp:], label="Численное")
