@@ -47,7 +47,7 @@ R1, R2      = R_SI/l_Deb, R_SI/l_Deb         # [обзразмеренно на 
 
 
 
-def read_MD_data(mol_d = r"C:\\Users\\1\\Downloads\\densprof_coul_5eV\\densprof_coul_5eV\\"):
+def read_MD_data(mol_d = r""):
     """ 
     Чтение данных молекулярной динамики
     mol_d - путь к МД результатам 
@@ -224,5 +224,3 @@ def Solver_PB(R1=R1, R2=R2, MD_data=-1, method=0, dr=dr, psi_0=0, rho1=rho1, rho
             plt.xlabel("r")
             plt.ylabel('\u03C8')
             plt.show()
-
-    # return psi[-1]
